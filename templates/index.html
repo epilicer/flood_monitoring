@@ -71,6 +71,14 @@
             color: #6c757d;
             margin-top: 5px;
         }
+        
+        .time-range-selector {
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
     </style>
 </head>
 <body>
@@ -91,6 +99,37 @@
                         {% endfor %}
                     </select>
                 </div>
+                
+                <div class="time-range-selector">
+                    <label class="form-label">Time Range:</label>
+                    <div class="d-flex flex-wrap">
+                        <div class="form-check me-3">
+                            <input class="form-check-input" type="radio" name="timeRange" id="time-1" value="1" checked>
+                            <label class="form-check-label" for="time-1">
+                                1 Day
+                            </label>
+                        </div>
+                        <div class="form-check me-3">
+                            <input class="form-check-input" type="radio" name="timeRange" id="time-3" value="3">
+                            <label class="form-check-label" for="time-3">
+                                3 Days
+                            </label>
+                        </div>
+                        <div class="form-check me-3">
+                            <input class="form-check-input" type="radio" name="timeRange" id="time-5" value="5">
+                            <label class="form-check-label" for="time-5">
+                                5 Days
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="timeRange" id="time-7" value="7">
+                            <label class="form-check-label" for="time-7">
+                                7 Days
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mt-3">
                     <button id="refresh-data" class="btn btn-outline-primary btn-sm">
                         Refresh Data
@@ -135,6 +174,7 @@
                 if (!stationId) return;
                 
                 var stationName = $("#station option:selected").text();
+                var timeRange = $("input[name='timeRange']:checked").val();
                 
                 // Show loading indicator
                 $("#graph-container").html("<div class='loading-spinner'></div><p class='text-center'>Loading data...</p>");
@@ -143,7 +183,11 @@
                     type: "POST",
                     url: "/get_graph",
                     contentType: "application/json",
-                    data: JSON.stringify({ "station_id": stationId, "station_name": stationName }),
+                    data: JSON.stringify({ 
+                        "station_id": stationId, 
+                        "station_name": stationName,
+                        "time_range": timeRange
+                    }),
                     success: function(response) {
                         $("#graph-container").html(response.graph);
                         lastUpdateTime = new Date();
@@ -163,6 +207,13 @@
             // Load graph when station is selected
             $("#station").change(loadGraphData);
             
+            // Load graph when time range is changed
+            $("input[name='timeRange']").change(function() {
+                if ($("#station").val()) {
+                    loadGraphData();
+                }
+            });
+                        
             // Manual refresh button
             $("#refresh-data").click(function() {
                 loadGraphData();

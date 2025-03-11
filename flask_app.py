@@ -13,7 +13,7 @@ import plotly.express as px
 from datetime import datetime, timedelta
 		 
 app = Flask(__name__)
-										
+
 API_URL = "https://environment.data.gov.uk/flood-monitoring/id/stations"
 
 # Cache station data for 1 hour
@@ -39,10 +39,11 @@ def get_stations():
     
     return stations_cache
 
-# Fetch last 24-hour readings for a selected station
-def get_readings(station_id):
-    last_24h = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    url = f"{API_URL}/{station_id}/readings?since={last_24h}&_sorted=true"
+# Fetch readings for a selected station and time range
+def get_readings(station_id, days=1):
+    # Calculate the start time based on the number of days
+    start_time = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    url = f"{API_URL}/{station_id}/readings?since={start_time}&_sorted=true"
 
     response = requests.get(url)
     if response.status_code == 200:
@@ -66,6 +67,7 @@ def home():
 def get_graph():
     station_id = request.json.get("station_id")
     selected_station_name = request.json.get("station_name", "Unknown Station")
+    days = int(request.json.get("time_range", 1))  # Default to 1 day if not specified
     
     # Validate station_id
     if not station_id:
@@ -76,21 +78,25 @@ def get_graph():
     if not stations_df.empty and station_id not in stations_df['id'].values:
         return jsonify({"graph": "<p class='error-message'>Station not found.</p>"}), 404
     
-    readings = get_readings(station_id)
+    readings = get_readings(station_id, days)
     
     if readings.empty:
-        return jsonify({"graph": "<p>No data available for this station in the last 24 hours.</p>"})
+        return jsonify({"graph": f"<p>No data available for this station in the last {days} day(s).</p>"})
 
     readings["dateTime"] = pd.to_datetime(readings["dateTime"])
     readings = readings.sort_values(by="dateTime")
 
-    # Create the Plotly graph
-    fig = px.line(readings, x="dateTime", y="value", title=f"Water Level Over Time for {selected_station_name}")
+    # Create the Plotly graph with better date formatting
+    fig = px.line(readings, x="dateTime", y="value", title=f"Water Level Over {days} Day(s) for {selected_station_name}")
+    
+    # Adjust the tick format based on the time range
+    tick_format = "%d-%b %H:%M" if days <= 3 else "%d-%b"
+    
     fig.update_xaxes(
         title_text="Date & Time",
-        tickformat="%d-%b %H:%M",  # Format: 01-Jan 15:30
+        tickformat=tick_format,
         tickangle=-45,
-        nticks=10
+        nticks=10 if days <= 3 else 7
     )
     fig.update_yaxes(title_text="Water Level (m)")
     fig.update_layout(
